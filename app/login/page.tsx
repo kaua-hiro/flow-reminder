@@ -16,8 +16,7 @@ export default function Login() {
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
-        // FORÇA o link a abrir no seu computador
-        emailRedirectTo: 'http://localhost:3000', 
+        emailRedirectTo: window.location.origin, 
       }
     });
 
