@@ -1,87 +1,116 @@
-'use client'
+"use client";
 
-import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
-import { useRouter } from 'next/navigation'
-import { LogOut, UserPlus, Search, Trash2, ArrowLeft } from 'lucide-react'
+import { useEffect, useState } from 'react';
+import { supabase } from '@/lib/supabase';
+import { useRouter } from 'next/navigation';
+import { LogOut, UserPlus, Search, Trash2, Pencil, ArrowLeft } from 'lucide-react';
 
 export default function Customers() {
-  const router = useRouter()
-  const [user, setUser] = useState<any>(null)
-  const [customers, setCustomers] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState('')
+  const router = useRouter();
+  const [user, setUser] = useState<any>(null);
+  const [customers, setCustomers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
   
-  // Estado para novo cliente
-  const [newName, setNewName] = useState('')
-  const [newPhone, setNewPhone] = useState('')
-  const [isAdding, setIsAdding] = useState(false)
+  // Estado para formulário
+  const [newName, setNewName] = useState('');
+  const [newPhone, setNewPhone] = useState('');
+  const [isAdding, setIsAdding] = useState(false);
+  
+  // O SEGREDO DO UPDATE: Guardar quem estamos editando
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   useEffect(() => {
     const checkUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
+      const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        router.push('/login')
+        router.push('/login');
       } else {
-        setUser(session.user)
-        fetchCustomers(session.user.id)
+        setUser(session.user);
+        fetchCustomers(session.user.id);
       }
-      setLoading(false)
-    }
-    checkUser()
-  }, [])
+      setLoading(false);
+    };
+    checkUser();
+  }, []);
 
   const fetchCustomers = async (userId: string) => {
     const { data, error } = await supabase
       .from('customers')
       .select('*')
-      .eq('user_id', userId) // Segurança: só traz meus clientes
-      .order('name', { ascending: true })
+      .eq('user_id', userId)
+      .order('name', { ascending: true });
     
-    if (error) console.error(error)
-    if (data) setCustomers(data)
-  }
+    if (error) console.error(error);
+    if (data) setCustomers(data);
+  };
 
-  const handleAddCustomer = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!user) return
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
 
-    const { error } = await supabase
-      .from('customers')
-      .insert({ user_id: user.id, name: newName, phone: newPhone })
+    if (editingId) {
+      // --- MODO EDIÇÃO (UPDATE) ---
+      const { error } = await supabase
+        .from('customers')
+        .update({ name: newName, phone: newPhone })
+        .eq('id', editingId); // Só atualiza este ID específico
 
-    if (error) {
-      alert('Erro ao criar cliente')
+      if (error) alert('Erro ao atualizar');
+      else {
+        resetForm();
+        fetchCustomers(user.id);
+      }
     } else {
-      setNewName('')
-      setNewPhone('')
-      setIsAdding(false)
-      fetchCustomers(user.id)
+      // --- MODO CRIAÇÃO (INSERT) ---
+      const { error } = await supabase
+        .from('customers')
+        .insert({ user_id: user.id, name: newName, phone: newPhone });
+
+      if (error) alert('Erro ao criar');
+      else {
+        resetForm();
+        fetchCustomers(user.id);
+      }
     }
-  }
+  };
+
+  // Função para preparar o formulário para edição
+  const handleEdit = (customer: any) => {
+    setNewName(customer.name);
+    setNewPhone(customer.phone);
+    setEditingId(customer.id); // Avisa o sistema que estamos editando
+    setIsAdding(true); // Abre o formulário
+  };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Excluir este cliente apaga o histórico dele. Confirmar?')) return
-    await supabase.from('customers').delete().eq('id', id)
-    fetchCustomers(user.id)
-  }
+    if (!confirm('Excluir este cliente apaga o histórico dele. Confirmar?')) return;
+    await supabase.from('customers').delete().eq('id', id);
+    fetchCustomers(user.id);
+  };
+
+  const resetForm = () => {
+    setNewName('');
+    setNewPhone('');
+    setEditingId(null);
+    setIsAdding(false);
+  };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut()
-    router.push('/login')
-  }
+    await supabase.auth.signOut();
+    router.push('/login');
+  };
 
-  // Filtro de busca local (Client-side search)
   const filteredCustomers = customers.filter(c => 
     c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
     c.phone.includes(searchTerm)
-  )
+  );
 
-  if (loading) return <div className="p-10 text-center">Carregando CRM...</div>
+  if (loading) return <div className="p-10 text-center">Carregando CRM...</div>;
 
   return (
     <div className="min-h-screen bg-gray-100 p-8">
-      {/* Cabeçalho Igual ao Dashboard */}
+      {/* Cabeçalho */}
       <div className="max-w-5xl mx-auto flex flex-col md:flex-row justify-between items-center mb-8 bg-white p-4 rounded-lg shadow-sm">
         <div className="mb-4 md:mb-0">
           <h1 className="text-2xl font-bold text-gray-900">Meus Clientes</h1>
@@ -90,14 +119,14 @@ export default function Customers() {
         
         <div className="flex gap-4">
             <button 
-            onClick={() => router.push('/dashboard')} 
-            className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 rounded-md"
+             onClick={() => router.push('/dashboard')} 
+             className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 rounded-md"
             >
             Agendamentos
             </button>
             <button 
-            onClick={() => router.push('/customers')} 
-            className="px-4 py-2 text-sm font-medium text-indigo-600 bg-indigo-50 rounded-md"
+             onClick={() => router.push('/customers')} 
+             className="px-4 py-2 text-sm font-medium text-indigo-600 bg-indigo-50 rounded-md"
             >
             Meus Clientes
             </button>
@@ -120,18 +149,21 @@ export default function Customers() {
                 />
             </div>
             <button 
-                onClick={() => setIsAdding(!isAdding)}
+                onClick={() => { resetForm(); setIsAdding(!isAdding); }}
                 className="bg-black text-white px-4 py-2 rounded-md flex items-center hover:bg-gray-800 transition-colors"
             >
-                <UserPlus className="w-4 h-4 mr-2" /> Novo Cliente
+                <UserPlus className="w-4 h-4 mr-2" /> 
+                {isAdding ? "Fechar" : "Novo Cliente"}
             </button>
         </div>
 
-        {/* Formulário (Aparece só quando clica em Novo Cliente) */}
+        {/* Formulário Inteligente (Criação e Edição) */}
         {isAdding && (
             <div className="bg-white p-6 rounded-lg shadow-md mb-6 border-l-4 border-indigo-500 animate-in fade-in slide-in-from-top-4">
-                <h3 className="font-bold text-gray-900 mb-4">Cadastrar Novo Cliente</h3>
-                <form onSubmit={handleAddCustomer} className="flex flex-col md:flex-row gap-4">
+                <h3 className="font-bold text-gray-900 mb-4">
+                  {editingId ? "Editar Cliente" : "Cadastrar Novo Cliente"}
+                </h3>
+                <form onSubmit={handleSubmit} className="flex flex-col md:flex-row gap-4">
                     <input 
                         placeholder="Nome Completo" 
                         required 
@@ -147,8 +179,10 @@ export default function Customers() {
                         onChange={e => setNewPhone(e.target.value)}
                     />
                     <div className="flex gap-2">
-                        <button type="submit" className="bg-indigo-600 text-white px-6 py-2 rounded hover:bg-indigo-700">Salvar</button>
-                        <button type="button" onClick={() => setIsAdding(false)} className="text-gray-500 px-4 py-2 hover:bg-gray-100 rounded">Cancelar</button>
+                        <button type="submit" className="bg-indigo-600 text-white px-6 py-2 rounded hover:bg-indigo-700">
+                          {editingId ? "Atualizar" : "Salvar"}
+                        </button>
+                        <button type="button" onClick={resetForm} className="text-gray-500 px-4 py-2 hover:bg-gray-100 rounded">Cancelar</button>
                     </div>
                 </form>
             </div>
@@ -169,7 +203,14 @@ export default function Customers() {
                         <tr key={customer.id} className="hover:bg-gray-50 transition-colors">
                             <td className="p-4 text-gray-900 font-medium">{customer.name}</td>
                             <td className="p-4 text-gray-500">{customer.phone}</td>
-                            <td className="p-4 text-right">
+                            <td className="p-4 text-right flex justify-end gap-2">
+                                <button 
+                                    onClick={() => handleEdit(customer)}
+                                    className="text-gray-400 hover:text-blue-600 p-2 rounded-full hover:bg-blue-50 transition-all"
+                                    title="Editar Cliente"
+                                >
+                                    <Pencil className="w-4 h-4" />
+                                </button>
                                 <button 
                                     onClick={() => handleDelete(customer.id)}
                                     className="text-gray-400 hover:text-red-600 p-2 rounded-full hover:bg-red-50 transition-all"
@@ -191,5 +232,5 @@ export default function Customers() {
         </div>
       </div>
     </div>
-  )
+  );
 }
