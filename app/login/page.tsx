@@ -10,23 +10,24 @@ export default function Login() {
   const [sent, setSent] = useState(false)
 
   const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    
+    e.preventDefault();
+    setLoading(true);
+
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
-        emailRedirectTo: `${location.origin}/dashboard`,
-      },
-    })
+        // FORÇA o link a abrir no seu computador
+        emailRedirectTo: 'http://localhost:3000', 
+      }
+    });
 
     if (error) {
-      alert('Erro: ' + error.message)
+      alert("Erro ao enviar login: " + error.message);
     } else {
-      setSent(true)
+      setSent(true);
     }
-    setLoading(false)
-  }
+    setLoading(false);
+  };
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50">
